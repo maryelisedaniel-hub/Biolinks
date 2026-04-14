@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gen Chem I - Macmillan Learning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Roboto Slab', serif;
+            background-color: #f8f9fa;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(200, 200, 200, 0.1) 35px, rgba(200, 200, 200, 0.1) 70px),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.05"><path d="M20,10 Q30,20 20,30 T20,50 Q30,60 20,70 T20,90" fill="none" stroke="%23666" stroke-width="2"/><path d="M80,10 Q70,20 80,30 T80,50 Q70,60 80,70 T80,90" fill="none" stroke="%23666" stroke-width="2"/><line x1="20" y1="20" x2="80" y2="40" stroke="%23666" stroke-width="1"/><line x1="20" y1="40" x2="80" y2="60" stroke="%23666" stroke-width="1"/><line x1="20" y1="60" x2="80" y2="80" stroke="%23666" stroke-width="1"/><line x1="20" y1="80" x2="80" y2="20" stroke="%23666" stroke-width="1"/></svg>');
+            background-size: 100% 100%, 200px 200px;
+        }
+        
+        @keyframes verticalShake {
+            0%, 100% { transform: translateY(0); }
+            25% { transform: translateY(-4px); }
+            75% { transform: translateY(4px); }
+        }
+        
+        .animate-shake {
+            animation: verticalShake 0.4s ease-in-out;
+        }
+        
+        .word-button {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .word-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+        
+        .word-button:hover::before {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .word-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .word-button.selected {
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.6);
+            border-color: #0056b3 !important;
+            background-color: #dbeafe !important;
+            border-width: 3px;
+        }
+        
+        .word-button.animating {
+            opacity: 0;
+            transform: scale(1.2);
+            pointer-events: none;
+        }
+        
+        .bio-pink { background-color: #f787a0; }
+        .bio-peach { background-color: #ffb077; }
+        .bio-mint { background-color: #7dc97d; }
+        .bio-cornflower { background-color: #6495ed; }
+        
+        .bio-card {
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .disclaimer {
+            font-size: 0.7rem;
+            color: #666;
+            text-align: center;
+            padding: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-6xl mx-auto p-4">
+        <h1 class="text-2xl font-bold text-center mb-2 text-gray-800">Gen Chem I</h1>
+        <div class="disclaimer mb-4">
+            This game is independently developed by Macmillan Learning and is not affiliated with or endorsed by The New York Times or any of its subsidiaries.
+        </div>
+        
+        <div class="p-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg text-center text-blue-800 font-medium mb-6 bio-card">
+            Link groups of four terms based on a common theme
+        </div>
+        
+        <div id="solvedGroups" class="space-y-2 mb-6"></div>
+        <div id="gameGrid" class="grid grid-cols-4 gap-2 sm:gap-3 mb-4 max-w-4xl mx-auto"></div>
+        
+        <div class="flex flex-col space-y-4">
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <div id="mistakesDisplay" class="text-lg font-bold text-gray-700">
+                    Mistakes: 0/4
+                </div>
+                
+                <div class="flex space-x-3 flex-wrap gap-2 justify-center">
+                    <button id="deselectAll" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full transition-all">
+                        Deselect All
+                    </button>
+                    
+                    <button id="shuffleWords" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full transition-all">
+                        Shuffle
+                    </button>
+                    
+                    <button id="checkSelection" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-full transition-all">
+                        Submit
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="gameMessage" class="hidden mt-4 p-3 rounded-lg text-center bio-card"></div>
+        
+        <div class="disclaimer mt-6">
+            © Macmillan Learning | Version 1.0
+        </div>
+    </div>
+
+    <script>
+        var ConnectionsGamePlay = function(predefinedGroups) {
+            this.groups = predefinedGroups;
+            this.gameWords = [];
+            this.selectedWords = [];
+            this.mistakes = 0;
+            this.solvedGroups = [];
+            this.gameStatus = "active";
+            this.isAnimating = false;
+            this.previousGuesses = [];
+        };
+        
+        ConnectionsGamePlay.prototype.init = function() {
+            this.startGame();
+            this.bindEvents();
+        };
+        
+        ConnectionsGamePlay.prototype.bindEvents = function() {
+            var self = this;
+            document.getElementById("deselectAll").addEventListener("click", function() { self.deselectAll(); });
+            document.getElementById("shuffleWords").addEventListener("click", function() { self.shuffleWords(); });
+            document.getElementById("checkSelection").addEventListener("click", function() { self.checkSelection(); });
+        };
+        
+        ConnectionsGamePlay.prototype.startGame = function() {
+            var allWordsWithGroups = [];
+            for (var groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
+                for (var wordIndex = 0; wordIndex < this.groups[groupIndex].words.length; wordIndex++) {
+                    allWordsWithGroups.push({
+                        text: this.groups[groupIndex].words[wordIndex],
+                        group: groupIndex,
+                        originalIndex: wordIndex
+                    });
+                }
+            }
+            
+            // Shuffle array
+            for (var i = allWordsWithGroups.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = allWordsWithGroups[i];
+                allWordsWithGroups[i] = allWordsWithGroups[j];
+                allWordsWithGroups[j] = temp;
+            }
+            
+            this.gameWords = [];
+            for (var i = 0; i < allWordsWithGroups.length; i++) {
+                this.gameWords.push({
+                    id: i,
+                    text: allWordsWithGroups[i].text,
+                    group: allWordsWithGroups[i].group,
+                    originalIndex: allWordsWithGroups[i].originalIndex,
+                    selected: false,
+                    solved: false,
+                    animating: false
+                });
+            }
+            
+            this.mistakes = 0;
+            this.solvedGroups = [];
+            this.previousGuesses = [];
+            this.gameStatus = "active";
+            this.selectedWords = [];
+            this.isAnimating = false;
+            
+            this.renderGame();
+        };
+        
+        ConnectionsGamePlay.prototype.renderGame = function() {
+            this.renderSolvedGroups();
+            this.renderGameGrid();
+            this.updateMistakesDisplay();
+            this.updateButtons();
+        };
+        
+        ConnectionsGamePlay.prototype.renderSolvedGroups = function() {
+            var container = document.getElementById("solvedGroups");
+            container.innerHTML = "";
+            
+            for (var i = 0; i < this.solvedGroups.length; i++) {
+                var groupIndex = this.solvedGroups[i];
+                var group = this.groups[groupIndex];
+                var groupDiv = document.createElement("div");
+                groupDiv.className = "p-3 rounded-lg " + group.color + " text-center bio-card";
+                
+                var wordsHTML = "";
+                for (var j = 0; j < group.words.length; j++) {
+                    wordsHTML += '<div class="border-2 border-gray-600 p-2 rounded-lg bg-white h-12 sm:h-16 flex items-center justify-center text-xs sm:text-sm font-medium text-gray-800">' + group.words[j] + '</div>';
+                }
+                
+                groupDiv.innerHTML = '<div class="font-bold text-gray-800 mb-2">' + group.name + '</div>' +
+                    '<div class="grid grid-cols-2 md:grid-cols-4 gap-2">' + wordsHTML + '</div>';
+                
+                container.appendChild(groupDiv);
+            }
+        };
+        
+        ConnectionsGamePlay.prototype.renderGameGrid = function() {
+            var container = document.getElementById("gameGrid");
+            container.innerHTML = "";
+            
+            var unsolvedWords = [];
+            for (var i = 0; i < this.gameWords.length; i++) {
+                if (!this.gameWords[i].solved) {
+                    unsolvedWords.push(this.gameWords[i]);
+                }
+            }
+            
+            var self = this;
+            for (var i = 0; i < unsolvedWords.length; i++) {
+                var word = unsolvedWords[i];
+                var button = document.createElement("button");
+                var className = "word-button p-3 sm:p-4 rounded-lg text-center font-medium h-12 sm:h-16 flex items-center justify-center bg-white hover:bg-gray-50 border-2 transition-all duration-300 text-xs sm:text-base bio-card";
+                
+                if (word.selected) {
+                    className += " bg-blue-100 hover:bg-blue-100 border-blue-600 selected";
+                } else {
+                    className += " border-gray-400";
+                }
+                
+                if (word.animating) {
+                    className += " animating";
+                }
+                
+                button.className = className;
+                button.textContent = word.text;
+                button.disabled = word.animating || this.isAnimating;
+                
+                (function(wordId) {
+                    button.addEventListener("click", function() { self.handleWordClick(wordId); });
+                })(word.id);
+                
+                container.appendChild(button);
+            }
+        };
+        
+        ConnectionsGamePlay.prototype.handleWordClick = function(wordId) {
+            if (this.gameStatus !== "active" || this.isAnimating) return;
+            
+            var wordIndex = -1;
+            for (var i = 0; i < this.gameWords.length; i++) {
+                if (this.gameWords[i].id === wordId) {
+                    wordIndex = i;
+                    break;
+                }
+            }
+            if (wordIndex === -1 || this.gameWords[wordIndex].solved) return;
+            
+            var selectedIndex = this.selectedWords.indexOf(wordId);
+            if (selectedIndex !== -1) {
+                this.selectedWords.splice(selectedIndex, 1);
+                this.gameWords[wordIndex].selected = false;
+            } else if (this.selectedWords.length < 4) {
+                this.selectedWords.push(wordId);
+                this.gameWords[wordIndex].selected = true;
+            }
+            
+            this.renderGameGrid();
+            this.updateButtons();
+            this.hideMessage();
+        };
+        
+        ConnectionsGamePlay.prototype.checkSelection = function() {
+            if (this.selectedWords.length !== 4 || this.gameStatus !== "active" || this.isAnimating) {
+                return;
+            }
+            
+            var selectedWordObjects = [];
+            for (var i = 0; i < this.selectedWords.length; i++) {
+                for (var j = 0; j < this.gameWords.length; j++) {
+                    if (this.gameWords[j].id === this.selectedWords[i]) {
+                        selectedWordObjects.push(this.gameWords[j]);
+                        break;
+                    }
+                }
+            }
+            
+            var selectedTexts = [];
+            for (var i = 0; i < selectedWordObjects.length; i++) {
+                selectedTexts.push(selectedWordObjects[i].text);
+            }
+            selectedTexts.sort();
+            
+            var isAlreadyGuessed = false;
+            for (var i = 0; i < this.previousGuesses.length; i++) {
+                var guess = this.previousGuesses[i].slice().sort();
+                if (JSON.stringify(guess) === JSON.stringify(selectedTexts)) {
+                    isAlreadyGuessed = true;
+                    break;
+                }
+            }
+            
+            if (isAlreadyGuessed) {
+                this.showMessage("You've tried this combination", "bg-yellow-100");
+                this.clearSelection();
+                return;
+            }
+            
+            var selectedGroups = [];
+            for (var i = 0; i < selectedWordObjects.length; i++) {
+                selectedGroups.push(selectedWordObjects[i].group);
+            }
+            
+            var groupCounts = {};
+            for (var i = 0; i < selectedGroups.length; i++) {
+                var group = selectedGroups[i];
+                groupCounts[group] = (groupCounts[group] || 0) + 1;
+            }
+            
+            var correctGroup = null;
+            for (var group in groupCounts) {
+                if (groupCounts[group] === 4) {
+                    correctGroup = group;
+                    break;
+                }
+            }
+            
+            if (correctGroup !== null) {
+                var groupIndex = parseInt(correctGroup);
+                this.showMessage("Correct!", "bg-green-100");
+                this.animateToSolvedGroup(this.selectedWords.slice(), groupIndex);
+            } else {
+                this.previousGuesses.push(selectedTexts);
+                this.mistakes++;
+                
+                var threeMatchGroup = null;
+                for (var group in groupCounts) {
+                    if (groupCounts[group] === 3) {
+                        threeMatchGroup = group;
+                        break;
+                    }
+                }
+                
+                if (threeMatchGroup !== null) {
+                    this.showMessage("Almost there - 3 of 4 correct!", "bg-yellow-100");
+                } else {
+                    this.shakeGrid();
+                    this.showMessage("Incorrect!", "bg-red-100");
+                }
+                
+                if (this.mistakes >= 4) {
+                    this.gameStatus = "lost";
+                    this.showMessage("No more attempts! Here are the answers...", "bg-orange-100");
+                    
+                    var self = this;
+                    setTimeout(function() {
+                        self.showCorrectAnswers();
+                    }, 2000);
+                }
+                
+                this.clearSelection();
+            }
+            
+            this.updateMistakesDisplay();
+            this.updateButtons();
+        };
+        
+        ConnectionsGamePlay.prototype.showCorrectAnswers = function() {
+            // Mark all remaining words as solved
+            for (var i = 0; i < this.gameWords.length; i++) {
+                this.gameWords[i].solved = true;
+                this.gameWords[i].selected = false;
+            }
+            
+            // Add all remaining groups to solved groups
+            var remainingGroups = [];
+            for (var i = 0; i < this.groups.length; i++) {
+                var found = false;
+                for (var j = 0; j < this.solvedGroups.length; j++) {
+                    if (this.solvedGroups[j] === i) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    remainingGroups.push(i);
+                }
+            }
+            
+            for (var i = 0; i < remainingGroups.length; i++) {
+                this.solvedGroups.push(remainingGroups[i]);
+            }
+            
+            this.renderGame();
+        };
+        
+        ConnectionsGamePlay.prototype.animateToSolvedGroup = function(wordIds, groupIndex) {
+            var self = this;
+            this.isAnimating = true;
+            
+            for (var i = 0; i < wordIds.length; i++) {
+                for (var j = 0; j < this.gameWords.length; j++) {
+                    if (this.gameWords[j].id === wordIds[i]) {
+                        this.gameWords[j].animating = true;
+                        break;
+                    }
+                }
+            }
+            
+            this.renderGameGrid();
+            
+            setTimeout(function() {
+                for (var i = 0; i < wordIds.length; i++) {
+                    for (var j = 0; j < self.gameWords.length; j++) {
+                        if (self.gameWords[j].id === wordIds[i]) {
+                            self.gameWords[j].solved = true;
+                            self.gameWords[j].selected = false;
+                            self.gameWords[j].animating = false;
+                            break;
+                        }
+                    }
+                }
+                
+                self.solvedGroups.push(groupIndex);
+                self.selectedWords = [];
+                
+                if (self.solvedGroups.length >= 4) {
+                    self.gameStatus = "won";
+                    self.showMessage("Congratulations! You've found all BioLinks!", "bg-green-100");
+                } else {
+                    self.hideMessage();
+                }
+                
+                self.isAnimating = false;
+                self.renderGame();
+            }, 1300);
+        };
+        
+        ConnectionsGamePlay.prototype.clearSelection = function() {
+            for (var i = 0; i < this.selectedWords.length; i++) {
+                for (var j = 0; j < this.gameWords.length; j++) {
+                    if (this.gameWords[j].id === this.selectedWords[i]) {
+                        this.gameWords[j].selected = false;
+                        break;
+                    }
+                }
+            }
+            this.selectedWords = [];
+            this.renderGameGrid();
+            this.updateButtons();
+        };
+        
+        ConnectionsGamePlay.prototype.deselectAll = function() {
+            if (this.isAnimating) return;
+            this.clearSelection();
+        };
+        
+        ConnectionsGamePlay.prototype.shuffleWords = function() {
+            if (this.gameStatus !== "active" || this.isAnimating) return;
+            
+            // Get all unsolved words with their complete data
+            var unsolvedWords = [];
+            for (var i = 0; i < this.gameWords.length; i++) {
+                if (!this.gameWords[i].solved) {
+                    // Create a deep copy of the word object
+                    var wordCopy = {
+                        id: this.gameWords[i].id,
+                        text: this.gameWords[i].text,
+                        group: this.gameWords[i].group,
+                        originalIndex: this.gameWords[i].originalIndex,
+                        selected: false,
+                        solved: false,
+                        animating: false
+                    };
+                    unsolvedWords.push(wordCopy);
+                }
+            }
+            
+            // Shuffle the unsolved words array
+            for (var i = unsolvedWords.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = unsolvedWords[i];
+                unsolvedWords[i] = unsolvedWords[j];
+                unsolvedWords[j] = temp;
+            }
+            
+            // Put the shuffled words back in their positions
+            var unsolvedIndex = 0;
+            for (var i = 0; i < this.gameWords.length; i++) {
+                if (!this.gameWords[i].solved) {
+                    this.gameWords[i] = unsolvedWords[unsolvedIndex];
+                    unsolvedIndex++;
+                }
+            }
+            
+            this.selectedWords = [];
+            this.renderGameGrid();
+            this.updateButtons();
+        };
+        
+        ConnectionsGamePlay.prototype.shakeGrid = function() {
+            var grid = document.getElementById("gameGrid");
+            grid.classList.add("animate-shake");
+            setTimeout(function() {
+                grid.classList.remove("animate-shake");
+            }, 400);
+        };
+        
+        ConnectionsGamePlay.prototype.updateMistakesDisplay = function() {
+            document.getElementById("mistakesDisplay").textContent = "Mistakes: " + this.mistakes + "/4";
+        };
+        
+        ConnectionsGamePlay.prototype.updateButtons = function() {
+            var deselectBtn = document.getElementById("deselectAll");
+            var shuffleBtn = document.getElementById("shuffleWords");
+            var submitBtn = document.getElementById("checkSelection");
+            
+            deselectBtn.disabled = this.selectedWords.length === 0 || this.gameStatus !== "active" || this.isAnimating;
+            shuffleBtn.disabled = this.gameStatus !== "active" || this.isAnimating;
+            submitBtn.disabled = this.selectedWords.length !== 4 || this.gameStatus !== "active" || this.isAnimating;
+            
+            var buttons = [deselectBtn, shuffleBtn, submitBtn];
+            for (var i = 0; i < buttons.length; i++) {
+                if (buttons[i].disabled) {
+                    buttons[i].classList.add("opacity-50", "cursor-not-allowed");
+                } else {
+                    buttons[i].classList.remove("opacity-50", "cursor-not-allowed");
+                }
+            }
+        };
+        
+        ConnectionsGamePlay.prototype.showMessage = function(message, bgClass) {
+            var element = document.getElementById("gameMessage");
+            element.textContent = message;
+            element.className = "mt-4 p-3 rounded-lg text-center bio-card " + bgClass;
+            element.classList.remove("hidden");
+        };
+        
+        ConnectionsGamePlay.prototype.hideMessage = function() {
+            document.getElementById("gameMessage").classList.add("hidden");
+        };
+        
+        document.addEventListener("DOMContentLoaded", function() {
+            var predefinedGroups = [{"name":"Atomic/Molecular Structure & Bonding","words":["Atomic theory","Electronic structure","Lewis structures","Molecular geometry"],"color":"bio-pink"},{"name":"Stoichiometry & Reaction Fundamentals","words":["Mole concept","Molar mass","Chemical equations","Limiting reagents"],"color":"bio-peach"},{"name":"Thermochemistry & Energy Changes","words":["Laws of thermodynamics","Enthalpy changes","Hess's Law","Calorimetry"],"color":"bio-mint"},{"name":"Intermolecular Forces & States of Matter","words":["Gas laws","Phase transitions","Intermolecular forces","Hydrogen bonding"],"color":"bio-cornflower"}];
+            var gamePlay = new ConnectionsGamePlay(predefinedGroups);
+            gamePlay.init();
+        });
+    </script>
+</body>
+</html>
